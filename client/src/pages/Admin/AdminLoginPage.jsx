@@ -1,8 +1,23 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { ArrowLeft, Music2, ShieldCheck } from "lucide-react";
 import AdminLoginForm from "../../features/admin/components/AdminLoginForm.jsx";
+import { useAuth } from "../../context/AuthContext";
 
 function AdminLoginPage() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted">Checking authentication...</p>
+      </main>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/admin" replace />;
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="w-full max-w-md">

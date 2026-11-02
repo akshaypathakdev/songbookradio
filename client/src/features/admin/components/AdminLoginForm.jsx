@@ -1,11 +1,20 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { useAuth } from "../../../context/AuthContext";
 
 function AdminLoginForm() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (event) => {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
+    setError("");
 
     const formData = new FormData(event.currentTarget);
 
@@ -14,8 +23,18 @@ function AdminLoginForm() {
       password: formData.get("password"),
     };
 
-    // Authentication API integration will be added later.
-    console.log(credentials);
+    try {
+      setLoading(true);
+
+      await login(credentials);
+
+      const redirectTo = location.state?.from?.pathname || "/admin";
+      navigate(redirectTo, { replace: true });
+    } catch (error) {
+      setError(error.response?.data?.message || "Invalid email or password.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -75,11 +94,18 @@ function AdminLoginForm() {
         </div>
       </div>
 
+      {error && (
+        <p className="text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      )}
+
       <button
         type="submit"
-        className="w-full rounded-lg bg-primary px-5 py-3 font-semibold text-on-primary transition hover:bg-accent"
+        disabled={loading}
+        className="w-full rounded-lg bg-primary px-5 py-3 font-semibold text-on-primary transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
       >
-        Sign In
+        {loading ? "Signing in..." : "Sign In"}
       </button>
     </form>
   );

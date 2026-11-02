@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import songs from "../../data/songs";
 import AllLyrics from "../../features/admin/components/AllLyrics";
@@ -23,14 +23,6 @@ function AllLyricsPage() {
   return (
     <main className="min-h-screen bg-background px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <Link
-          to="/admin"
-          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-primary"
-        >
-          <ArrowLeft size={17} />
-          Back to Dashboard
-        </Link>
-
         {/* Header */}
         <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
           <div>

@@ -1,11 +1,5 @@
 import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  BookOpen,
-  Music2,
-  Plus,
-  LayoutDashboard,
-} from "lucide-react";
+import { ArrowRight, BookOpen, Plus, LayoutDashboard } from "lucide-react";
 
 const adminOptions = [
   {

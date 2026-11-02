@@ -1,19 +1,10 @@
-import { Link } from "react-router-dom";
-import { ArrowLeft, Music2 } from "lucide-react";
+import { Music2 } from "lucide-react";
 import SongUploadForm from "../../features/admin/components/SongUploadForm.jsx";
 
 function SongUploadPage() {
   return (
-    <main className="min-h-screen px-4 py-10 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-background px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
-        <Link
-          to="/"
-          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-primary"
-        >
-          <ArrowLeft size={17} />
-          Back to Website
-        </Link>
-
         <div className="mb-8">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary">
             <Music2 size={25} className="text-primary" />
