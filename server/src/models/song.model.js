@@ -38,25 +38,26 @@ const songSchema = new mongoose.Schema(
       },
     },
     artwork: {
-      url: {
-        type: String,
-        default: "",
-        trim: true,
-      },
       key: {
         type: String,
-        default: "",
+        required: true,
         trim: true,
       },
-      source: {
+      contentType: {
         type: String,
-        enum: ["external", "upload"],
-        default: "external",
+        default: "image/webp",
       },
     },
     lyrics: {
-      type: String,
-      required: true,
+      key: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      contentType: {
+        type: String,
+        default: "text/markdown",
+      },
     },
     lyricist: {
       type: String,

@@ -1,4 +1,7 @@
-import Song from "../models/Song.js";
+import { randomUUID } from "node:crypto";
+
+import Song from "../models/song.model.js";
+import { uploadFile, deleteFile } from "../services/b2.service.js";
 
 // Generate URL-friendly slug
 const generateSlug = (title) => {
@@ -31,12 +34,86 @@ const generateUniqueSlug = async (title, excludeId = null) => {
   return slug;
 };
 
-// Escape special regex characters in search input
+// Escape special regex characters
 const escapeRegex = (value) => {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
 
-// Handle common database errors
+// Parse singers from multipart form data
+const parseSingers = (singers) => {
+  if (typeof singers === "string") {
+    try {
+      singers = JSON.parse(singers);
+    } catch {
+      singers = [singers];
+    }
+  }
+
+  if (!Array.isArray(singers)) {
+    throw new Error("Singers must be an array.");
+  }
+
+  return singers.map((singer) => singer.trim()).filter(Boolean);
+};
+
+// Upload lyrics to B2
+const uploadLyrics = async (lyrics, slug) => {
+  const key = `songs/${slug}/lyrics-${randomUUID()}.md`;
+
+  await uploadFile({
+    key,
+    body: Buffer.from(lyrics, "utf-8"),
+    contentType: "text/markdown; charset=utf-8",
+  });
+
+  return {
+    key,
+    contentType: "text/markdown",
+  };
+};
+
+// Upload artwork to B2
+const uploadArtwork = async (file, slug) => {
+  const extensions = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+  };
+
+  const extension = extensions[file.mimetype];
+
+  if (!extension) {
+    throw new Error("Unsupported artwork format.");
+  }
+
+  const key = `songs/${slug}/artwork-${randomUUID()}${extension}`;
+
+  await uploadFile({
+    key,
+    body: file.buffer,
+    contentType: file.mimetype,
+  });
+
+  return {
+    key,
+    contentType: file.mimetype,
+  };
+};
+
+// Safely delete old B2 files
+const cleanupFiles = async (keys) => {
+  for (const key of keys) {
+    if (!key) continue;
+
+    try {
+      await deleteFile(key);
+    } catch (error) {
+      console.error(`Failed to delete B2 file ${key}:`, error.message);
+    }
+  }
+};
+
+// Handle common errors
 const handleError = (res, error, message) => {
   console.error(message, error);
 
@@ -62,6 +139,8 @@ const handleError = (res, error, message) => {
 
 // Create song
 export const createSong = async (req, res) => {
+  const uploadedKeys = [];
+
   try {
     const {
       title,
@@ -69,12 +148,32 @@ export const createSong = async (req, res) => {
       albumOrMovie,
       musicDirector,
       singers,
-      artwork,
       lyrics,
       lyricist,
     } = req.body;
 
     const slug = await generateUniqueSlug(title);
+    const parsedSingers = parseSingers(singers);
+
+    if (!lyrics?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Lyrics are required.",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Song artwork is required.",
+      });
+    }
+
+    const lyricsFile = await uploadLyrics(lyrics, slug);
+    uploadedKeys.push(lyricsFile.key);
+
+    const artworkFile = await uploadArtwork(req.file, slug);
+    uploadedKeys.push(artworkFile.key);
 
     const song = await Song.create({
       title,
@@ -82,9 +181,9 @@ export const createSong = async (req, res) => {
       language,
       albumOrMovie,
       musicDirector,
-      singers,
-      artwork,
-      lyrics,
+      singers: parsedSingers,
+      artwork: artworkFile,
+      lyrics: lyricsFile,
       lyricist,
     });
 
@@ -94,6 +193,7 @@ export const createSong = async (req, res) => {
       song,
     });
   } catch (error) {
+    await cleanupFiles(uploadedKeys);
     return handleError(res, error, "Create song failed:");
   }
 };
@@ -124,7 +224,11 @@ export const getSongs = async (req, res) => {
       : {};
 
     const [songs, totalSongs] = await Promise.all([
-      Song.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Song.find(filter)
+        .select("-lyrics")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
 
       Song.countDocuments(filter),
     ]);
@@ -171,6 +275,8 @@ export const getSongBySlug = async (req, res) => {
 
 // Update song
 export const updateSong = async (req, res) => {
+  const uploadedKeys = [];
+
   try {
     const song = await Song.findById(req.params.id);
 
@@ -181,14 +287,17 @@ export const updateSong = async (req, res) => {
       });
     }
 
+    const oldKeys = [];
+
+    if (req.body.title !== undefined) {
+      song.title = req.body.title;
+      song.slug = await generateUniqueSlug(req.body.title, song._id);
+    }
+
     const allowedFields = [
-      "title",
       "language",
       "albumOrMovie",
       "musicDirector",
-      "singers",
-      "artwork",
-      "lyrics",
       "lyricist",
     ];
 
@@ -198,11 +307,37 @@ export const updateSong = async (req, res) => {
       }
     }
 
-    if (req.body.title !== undefined) {
-      song.slug = await generateUniqueSlug(req.body.title, song._id);
+    if (req.body.singers !== undefined) {
+      song.singers = parseSingers(req.body.singers);
+    }
+
+    if (req.body.lyrics !== undefined) {
+      if (!req.body.lyrics.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Lyrics cannot be empty.",
+        });
+      }
+
+      const newLyrics = await uploadLyrics(req.body.lyrics, song.slug);
+      uploadedKeys.push(newLyrics.key);
+
+      oldKeys.push(song.lyrics.key);
+      song.lyrics = newLyrics;
+    }
+
+    if (req.file) {
+      const newArtwork = await uploadArtwork(req.file, song.slug);
+      uploadedKeys.push(newArtwork.key);
+
+      oldKeys.push(song.artwork.key);
+      song.artwork = newArtwork;
     }
 
     await song.save();
+
+    // Delete old files only after the database update succeeds
+    await cleanupFiles(oldKeys);
 
     return res.status(200).json({
       success: true,
@@ -210,6 +345,7 @@ export const updateSong = async (req, res) => {
       song,
     });
   } catch (error) {
+    await cleanupFiles(uploadedKeys);
     return handleError(res, error, "Update song failed:");
   }
 };
@@ -225,6 +361,8 @@ export const deleteSong = async (req, res) => {
         message: "Song not found.",
       });
     }
+
+    await cleanupFiles([song.artwork?.key, song.lyrics?.key]);
 
     return res.status(200).json({
       success: true,
