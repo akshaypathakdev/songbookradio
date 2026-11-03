@@ -1,27 +1,54 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import songs from "../../data/songs";
+import api from "../../services/api";
 import SearchBar from "../../features/songs/components/SearchBar.jsx";
 import SearchResults from "../../features/songs/components/SearchResults.jsx";
 
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+
   const query = searchParams.get("q") || "";
 
   const [searchInput, setSearchInput] = useState(query);
+  const [songs, setSongs] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const filteredSongs = songs.filter((song) => {
-    const searchTerm = query.trim().toLowerCase();
+  useEffect(() => {
+    setSearchInput(query);
+  }, [query]);
 
-    if (!searchTerm) return false;
+  useEffect(() => {
+    if (!query.trim()) {
+      setSongs([]);
+      setError("");
+      setLoading(false);
+      return;
+    }
 
-    return (
-      song.title.toLowerCase().includes(searchTerm) ||
-      song.artist.toLowerCase().includes(searchTerm) ||
-      song.album.toLowerCase().includes(searchTerm)
-    );
-  });
+    const fetchSongs = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const { data } = await api.get("/songs", {
+          params: { search: query },
+        });
+
+        setSongs(data.songs || []);
+      } catch (err) {
+        setError(
+          err.response?.data?.message || "Failed to search songs."
+        );
+        setSongs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSongs();
+  }, [query]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -64,13 +91,20 @@ function SearchPage() {
               </h2>
 
               <p className="mt-1 text-sm text-muted">
-                {filteredSongs.length}{" "}
-                {filteredSongs.length === 1 ? "song" : "songs"} found for
-                "{query}"
+                {loading
+                  ? "Searching..."
+                  : `${songs.length} ${
+                      songs.length === 1 ? "song" : "songs"
+                    } found for "${query}"`}
               </p>
             </div>
 
-            <SearchResults songs={filteredSongs} query={query} />
+            <SearchResults
+              songs={songs}
+              query={query}
+              loading={loading}
+              error={error}
+            />
           </>
         ) : (
           <div className="py-12 text-center">

@@ -35,6 +35,40 @@ const streamSongFile = async (req, res, field) => {
   }
 };
 
-export const getSongLyrics = (req, res) => streamSongFile(req, res, "lyrics");
+export const getSongLyrics = (req, res) =>
+  streamSongFile(req, res, "lyrics");
 
-export const getSongArtwork = (req, res) => streamSongFile(req, res, "artwork");
+export const getSongArtwork = async (req, res) => {
+  try {
+    const song = await Song.findOne({ slug: req.params.slug });
+
+    if (!song?.artwork) {
+      return res.status(404).json({
+        success: false,
+        message: "Song artwork not found.",
+      });
+    }
+
+    // External artwork
+    if (song.artwork.source === "external" && song.artwork.url) {
+      return res.redirect(302, song.artwork.url);
+    }
+
+    // Uploaded artwork (including older records without source)
+    if (song.artwork.key) {
+      return streamSongFile(req, res, "artwork");
+    }
+
+    return res.status(404).json({
+      success: false,
+      message: "Song artwork not found.",
+    });
+  } catch (error) {
+    console.error("Failed to retrieve song artwork:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve song artwork.",
+    });
+  }
+};

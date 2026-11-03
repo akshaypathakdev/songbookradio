@@ -14,6 +14,7 @@ import AdminLoginPage from "../pages/Admin/AdminLoginPage.jsx";
 import AdminDashboardPage from "../pages/Admin/AdminDashboardPage.jsx";
 import SongUploadPage from "../pages/Admin/SongUploadPage.jsx";
 import AllLyricsPage from "../pages/Admin/AllLyricsPage.jsx";
+import EditSongPage from "../pages/Admin/EditSongPage.jsx";
 
 function AppRoutes() {
   return (
@@ -35,6 +36,7 @@ function AppRoutes() {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/songs/new" element={<SongUploadPage />} />
           <Route path="/admin/songs" element={<AllLyricsPage />} />
+          <Route path="/admin/songs/:slug/edit" element={<EditSongPage />} />
         </Route>
       </Route>
 

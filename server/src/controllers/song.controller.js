@@ -53,7 +53,21 @@ const parseSingers = (singers) => {
     throw new Error("Singers must be an array.");
   }
 
-  return singers.map((singer) => singer.trim()).filter(Boolean);
+  return singers
+    .filter((singer) => typeof singer === "string")
+    .map((singer) => singer.trim())
+    .filter(Boolean);
+};
+
+// Validate external artwork URL
+const isValidArtworkUrl = (value) => {
+  try {
+    const url = new URL(value);
+
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 };
 
 // Upload lyrics to B2
@@ -95,6 +109,7 @@ const uploadArtwork = async (file, slug) => {
   });
 
   return {
+    source: "upload",
     key,
     contentType: file.mimetype,
   };
@@ -150,10 +165,17 @@ export const createSong = async (req, res) => {
       singers,
       lyrics,
       lyricist,
+      artworkUrl,
     } = req.body;
 
-    const slug = await generateUniqueSlug(title);
     const parsedSingers = parseSingers(singers);
+
+    if (parsedSingers.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one singer is required.",
+      });
+    }
 
     if (!lyrics?.trim()) {
       return res.status(400).json({
@@ -162,18 +184,37 @@ export const createSong = async (req, res) => {
       });
     }
 
-    if (!req.file) {
+    if (req.file && artworkUrl?.trim()) {
       return res.status(400).json({
         success: false,
-        message: "Song artwork is required.",
+        message:
+          "Provide either an artwork upload or an artwork URL, not both.",
       });
     }
+
+    if (artworkUrl?.trim() && !isValidArtworkUrl(artworkUrl.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid HTTP or HTTPS artwork URL.",
+      });
+    }
+
+    const slug = await generateUniqueSlug(title);
 
     const lyricsFile = await uploadLyrics(lyrics, slug);
     uploadedKeys.push(lyricsFile.key);
 
-    const artworkFile = await uploadArtwork(req.file, slug);
-    uploadedKeys.push(artworkFile.key);
+    let artworkData;
+
+    if (req.file) {
+      artworkData = await uploadArtwork(req.file, slug);
+      uploadedKeys.push(artworkData.key);
+    } else if (artworkUrl?.trim()) {
+      artworkData = {
+        source: "external",
+        url: artworkUrl.trim(),
+      };
+    }
 
     const song = await Song.create({
       title,
@@ -182,7 +223,7 @@ export const createSong = async (req, res) => {
       albumOrMovie,
       musicDirector,
       singers: parsedSingers,
-      artwork: artworkFile,
+      artwork: artworkData,
       lyrics: lyricsFile,
       lyricist,
     });
@@ -308,7 +349,16 @@ export const updateSong = async (req, res) => {
     }
 
     if (req.body.singers !== undefined) {
-      song.singers = parseSingers(req.body.singers);
+      const parsedSingers = parseSingers(req.body.singers);
+
+      if (parsedSingers.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "At least one singer is required.",
+        });
+      }
+
+      song.singers = parsedSingers;
     }
 
     if (req.body.lyrics !== undefined) {
@@ -326,12 +376,52 @@ export const updateSong = async (req, res) => {
       song.lyrics = newLyrics;
     }
 
+    const artworkUrlProvided = req.body.artworkUrl !== undefined;
+    const artworkUrl = req.body.artworkUrl?.trim();
+
+    if (req.file && artworkUrlProvided && artworkUrl) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Provide either an artwork upload or an artwork URL, not both.",
+      });
+    }
+
+    if (artworkUrlProvided && artworkUrl && !isValidArtworkUrl(artworkUrl)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid HTTP or HTTPS artwork URL.",
+      });
+    }
+
+    const oldArtworkKey = song.artwork?.key;
+
     if (req.file) {
       const newArtwork = await uploadArtwork(req.file, song.slug);
       uploadedKeys.push(newArtwork.key);
 
-      oldKeys.push(song.artwork.key);
+      if (oldArtworkKey) {
+        oldKeys.push(oldArtworkKey);
+      }
+
       song.artwork = newArtwork;
+    } else if (artworkUrlProvided) {
+      if (oldArtworkKey) {
+        oldKeys.push(oldArtworkKey);
+      }
+
+      song.artwork = artworkUrl
+        ? {
+            source: "external",
+            url: artworkUrl,
+          }
+        : undefined;
+    } else if (req.body.removeArtwork === "true") {
+      if (oldArtworkKey) {
+        oldKeys.push(oldArtworkKey);
+      }
+
+      song.artwork = undefined;
     }
 
     await song.save();

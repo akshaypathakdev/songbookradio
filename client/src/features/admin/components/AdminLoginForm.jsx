@@ -1,6 +1,8 @@
+
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+
 import { useAuth } from "../../../context/AuthContext";
 
 function AdminLoginForm() {
@@ -14,12 +16,15 @@ function AdminLoginForm() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (loading) return;
+
     setError("");
 
     const formData = new FormData(event.currentTarget);
 
     const credentials = {
-      email: formData.get("email"),
+      email: formData.get("email").trim(),
       password: formData.get("password"),
     };
 
@@ -29,9 +34,13 @@ function AdminLoginForm() {
       await login(credentials);
 
       const redirectTo = location.state?.from?.pathname || "/admin";
+
       navigate(redirectTo, { replace: true });
-    } catch (error) {
-      setError(error.response?.data?.message || "Invalid email or password.");
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Unable to sign in. Please check your credentials and try again."
+      );
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+
 import api from "../services/api.js";
 
 const AuthContext = createContext(null);
@@ -8,25 +15,43 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   // Check whether an admin session already exists.
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async (signal) => {
     try {
-      const { data } = await api.get("/admin/auth/me");
-      setAdmin(data.admin);
-    } catch {
-      setAdmin(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const { data } = await api.get("/admin/auth/me", { signal });
 
-  useEffect(() => {
-    checkAuth();
+      if (!signal?.aborted) {
+        setAdmin(data.admin);
+      }
+
+      return data.admin;
+    } catch (error) {
+      if (!signal?.aborted) {
+        setAdmin(null);
+      }
+
+      return null;
+    } finally {
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
+    }
   }, []);
+
+  // Initialize authentication when the app loads.
+  useEffect(() => {
+    const controller = new AbortController();
+
+    checkAuth(controller.signal);
+
+    return () => controller.abort();
+  }, [checkAuth]);
 
   // Log in the admin.
   const login = async (credentials) => {
     const { data } = await api.post("/admin/auth/login", credentials);
+
     setAdmin(data.admin);
+
     return data;
   };
 

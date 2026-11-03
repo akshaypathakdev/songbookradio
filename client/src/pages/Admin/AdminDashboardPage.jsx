@@ -10,7 +10,7 @@ const adminOptions = [
   },
   {
     title: "All Lyrics",
-    description: "View, manage, edit, and delete uploaded songs.",
+    description: "View and manage your uploaded songs and lyrics.",
     icon: BookOpen,
     path: "/admin/songs",
   },

@@ -1,7 +1,24 @@
 import { Music2 } from "lucide-react";
+
 import SongCard from "./SongCard";
 
-function SearchResults({ songs, query }) {
+function SearchResults({ songs, query, loading, error }) {
+  if (loading) {
+    return (
+      <p className="py-12 text-center text-muted">
+        Searching songs...
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="py-12 text-center text-red-500">
+        {error}
+      </p>
+    );
+  }
+
   if (songs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-surface px-4 py-16 text-center">
@@ -9,11 +26,13 @@ function SearchResults({ songs, query }) {
           <Music2 size={32} className="text-primary" />
         </div>
 
-        <h2 className="text-xl font-bold text-foreground">No songs found</h2>
+        <h2 className="text-xl font-bold text-foreground">
+          No songs found
+        </h2>
 
         <p className="mt-2 max-w-md text-sm text-muted">
-          We couldn't find any songs matching "{query}". Try searching with
-          another song title, artist, or album.
+          We couldn't find any songs matching "{query}". Try searching
+          with another song title, artist, or album.
         </p>
       </div>
     );
@@ -22,7 +41,7 @@ function SearchResults({ songs, query }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {songs.map((song) => (
-        <SongCard key={song.id} song={song} />
+        <SongCard key={song._id} song={song} />
       ))}
     </div>
   );

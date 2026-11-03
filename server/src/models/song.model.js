@@ -38,9 +38,16 @@ const songSchema = new mongoose.Schema(
       },
     },
     artwork: {
+      source: {
+        type: String,
+        enum: ["upload", "external"],
+      },
       key: {
         type: String,
-        required: true,
+        trim: true,
+      },
+      url: {
+        type: String,
         trim: true,
       },
       contentType: {
