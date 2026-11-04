@@ -6,6 +6,7 @@ const songSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      maxlength: 200,
     },
     slug: {
       type: String,
@@ -13,28 +14,38 @@ const songSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      maxlength: 250,
     },
     language: {
       type: String,
       required: true,
       trim: true,
+      maxlength: 50,
     },
     albumOrMovie: {
       type: String,
       trim: true,
       default: "",
+      maxlength: 200,
     },
     musicDirector: {
       type: String,
       trim: true,
       default: "",
+      maxlength: 150,
     },
     singers: {
-      type: [String],
+      type: [
+        {
+          type: String,
+          trim: true,
+          maxlength: 100,
+        },
+      ],
       required: true,
       validate: {
-        validator: (singers) => singers.length > 0,
-        message: "At least one singer is required.",
+        validator: (singers) => singers.length > 0 && singers.every(Boolean),
+        message: "At least one valid singer is required.",
       },
     },
     artwork: {
@@ -70,6 +81,7 @@ const songSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+      maxlength: 150,
     },
   },
   {

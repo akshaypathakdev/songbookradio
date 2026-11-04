@@ -12,7 +12,8 @@ const generateSlug = (title) => {
       .trim()
       .replace(/[^\p{L}\p{N}\s-]/gu, "")
       .replace(/\s+/g, "-")
-      .replace(/-+/g, "-") || "song"
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "") || "song"
   );
 };
 
@@ -50,13 +51,18 @@ const parseSingers = (singers) => {
   }
 
   if (!Array.isArray(singers)) {
-    throw new Error("Singers must be an array.");
+    const error = new Error("Singers must be an array.");
+    error.statusCode = 400;
+    throw error;
   }
 
-  return singers
-    .filter((singer) => typeof singer === "string")
-    .map((singer) => singer.trim())
-    .filter(Boolean);
+  if (singers.some((singer) => typeof singer !== "string" || !singer.trim())) {
+    const error = new Error("Singer names must be non-empty strings.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return singers.map((singer) => singer.trim());
 };
 
 // Validate external artwork URL
@@ -64,7 +70,11 @@ const isValidArtworkUrl = (value) => {
   try {
     const url = new URL(value);
 
-    return url.protocol === "http:" || url.protocol === "https:";
+    return (
+      ["http:", "https:"].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+    );
   } catch {
     return false;
   }
@@ -97,7 +107,9 @@ const uploadArtwork = async (file, slug) => {
   const extension = extensions[file.mimetype];
 
   if (!extension) {
-    throw new Error("Unsupported artwork format.");
+    const error = new Error("Unsupported artwork format.");
+    error.statusCode = 400;
+    throw error;
   }
 
   const key = `songs/${slug}/artwork-${randomUUID()}${extension}`;
@@ -131,6 +143,13 @@ const cleanupFiles = async (keys) => {
 // Handle common errors
 const handleError = (res, error, message) => {
   console.error(message, error);
+
+  if (error.statusCode) {
+    return res.status(error.statusCode).json({
+      success: false,
+      message: error.message,
+    });
+  }
 
   if (error.name === "ValidationError" || error.name === "CastError") {
     return res.status(400).json({
@@ -169,6 +188,7 @@ export const createSong = async (req, res) => {
     } = req.body;
 
     const parsedSingers = parseSingers(singers);
+    const externalArtworkUrl = artworkUrl?.trim() || "";
 
     if (parsedSingers.length === 0) {
       return res.status(400).json({
@@ -177,14 +197,14 @@ export const createSong = async (req, res) => {
       });
     }
 
-    if (!lyrics?.trim()) {
+    if (typeof lyrics !== "string" || !lyrics.trim()) {
       return res.status(400).json({
         success: false,
         message: "Lyrics are required.",
       });
     }
 
-    if (req.file && artworkUrl?.trim()) {
+    if (req.file && externalArtworkUrl) {
       return res.status(400).json({
         success: false,
         message:
@@ -192,7 +212,7 @@ export const createSong = async (req, res) => {
       });
     }
 
-    if (artworkUrl?.trim() && !isValidArtworkUrl(artworkUrl.trim())) {
+    if (externalArtworkUrl && !isValidArtworkUrl(externalArtworkUrl)) {
       return res.status(400).json({
         success: false,
         message: "Please provide a valid HTTP or HTTPS artwork URL.",
@@ -209,10 +229,10 @@ export const createSong = async (req, res) => {
     if (req.file) {
       artworkData = await uploadArtwork(req.file, slug);
       uploadedKeys.push(artworkData.key);
-    } else if (artworkUrl?.trim()) {
+    } else if (externalArtworkUrl) {
       artworkData = {
         source: "external",
-        url: artworkUrl.trim(),
+        url: externalArtworkUrl,
       };
     }
 
@@ -249,8 +269,26 @@ export const getSongs = async (req, res) => {
       Math.max(1, parseInt(req.query.limit, 10) || 10),
     );
 
-    const skip = (page - 1) * limit;
+    if (
+      req.query.search !== undefined &&
+      typeof req.query.search !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid search query.",
+      });
+    }
+
     const search = req.query.search?.trim();
+
+    if (search && search.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query cannot exceed 100 characters.",
+      });
+    }
+
+    const skip = (page - 1) * limit;
 
     const filter = search
       ? {
@@ -328,11 +366,88 @@ export const updateSong = async (req, res) => {
       });
     }
 
-    const oldKeys = [];
+    const {
+      title,
+      language,
+      albumOrMovie,
+      musicDirector,
+      lyricist,
+      singers,
+      lyrics,
+      artworkUrl,
+      removeArtwork,
+    } = req.body;
 
-    if (req.body.title !== undefined) {
-      song.title = req.body.title;
-      song.slug = await generateUniqueSlug(req.body.title, song._id);
+    // Validate all input before uploading anything to B2
+
+    let parsedSingers;
+
+    if (singers !== undefined) {
+      parsedSingers = parseSingers(singers);
+
+      if (parsedSingers.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "At least one singer is required.",
+        });
+      }
+    }
+
+    if (lyrics !== undefined) {
+      if (typeof lyrics !== "string" || !lyrics.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Lyrics cannot be empty.",
+        });
+      }
+    }
+
+    const artworkUrlProvided = artworkUrl !== undefined;
+    const externalArtworkUrl = artworkUrl?.trim() || "";
+
+    if (req.file && artworkUrlProvided && externalArtworkUrl) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Provide either an artwork upload or an artwork URL, not both.",
+      });
+    }
+
+    if (
+      artworkUrlProvided &&
+      externalArtworkUrl &&
+      !isValidArtworkUrl(externalArtworkUrl)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid HTTP or HTTPS artwork URL.",
+      });
+    }
+
+    if (
+      removeArtwork !== undefined &&
+      !["true", "false"].includes(removeArtwork)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid removeArtwork value.",
+      });
+    }
+
+    if (
+      removeArtwork === "true" &&
+      (req.file || (artworkUrlProvided && externalArtworkUrl))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Artwork removal cannot be combined with new artwork.",
+      });
+    }
+
+    // Apply metadata changes
+    if (title !== undefined) {
+      song.title = title;
+      song.slug = await generateUniqueSlug(title, song._id);
     }
 
     const allowedFields = [
@@ -348,52 +463,25 @@ export const updateSong = async (req, res) => {
       }
     }
 
-    if (req.body.singers !== undefined) {
-      const parsedSingers = parseSingers(req.body.singers);
-
-      if (parsedSingers.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "At least one singer is required.",
-        });
-      }
-
+    if (parsedSingers !== undefined) {
       song.singers = parsedSingers;
     }
 
-    if (req.body.lyrics !== undefined) {
-      if (!req.body.lyrics.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: "Lyrics cannot be empty.",
-        });
-      }
+    const oldKeys = [];
 
-      const newLyrics = await uploadLyrics(req.body.lyrics, song.slug);
+    // Upload replacement lyrics
+    if (lyrics !== undefined) {
+      const newLyrics = await uploadLyrics(lyrics, song.slug);
       uploadedKeys.push(newLyrics.key);
 
-      oldKeys.push(song.lyrics.key);
+      if (song.lyrics?.key) {
+        oldKeys.push(song.lyrics.key);
+      }
+
       song.lyrics = newLyrics;
     }
 
-    const artworkUrlProvided = req.body.artworkUrl !== undefined;
-    const artworkUrl = req.body.artworkUrl?.trim();
-
-    if (req.file && artworkUrlProvided && artworkUrl) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Provide either an artwork upload or an artwork URL, not both.",
-      });
-    }
-
-    if (artworkUrlProvided && artworkUrl && !isValidArtworkUrl(artworkUrl)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid HTTP or HTTPS artwork URL.",
-      });
-    }
-
+    // Update artwork
     const oldArtworkKey = song.artwork?.key;
 
     if (req.file) {
@@ -410,13 +498,13 @@ export const updateSong = async (req, res) => {
         oldKeys.push(oldArtworkKey);
       }
 
-      song.artwork = artworkUrl
+      song.artwork = externalArtworkUrl
         ? {
             source: "external",
-            url: artworkUrl,
+            url: externalArtworkUrl,
           }
         : undefined;
-    } else if (req.body.removeArtwork === "true") {
+    } else if (removeArtwork === "true") {
       if (oldArtworkKey) {
         oldKeys.push(oldArtworkKey);
       }

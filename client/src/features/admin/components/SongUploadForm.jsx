@@ -172,23 +172,15 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
             <label className="mb-2 block text-sm font-medium text-foreground">
               Language *
             </label>
-            <select
+            <input
+              type="text"
               name="language"
               required
-              defaultValue={song?.language || ""}
+              defaultValue={song?.language || "Hindi"}
               disabled={loading}
+              placeholder="Enter language"
               className={inputClasses}
-            >
-              <option value="" disabled>
-                Select language
-              </option>
-              <option value="Hindi">Hindi</option>
-              <option value="English">English</option>
-              <option value="Punjabi">Punjabi</option>
-              <option value="Tamil">Tamil</option>
-              <option value="Telugu">Telugu</option>
-              <option value="Other">Other</option>
-            </select>
+            />
           </div>
 
           <div>
@@ -229,7 +221,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
               onChange={(event) => setSingers(event.target.value)}
               required
               disabled={loading}
-              placeholder="e.g. Arijit Singh, Shreya Ghoshal"
+              placeholder="e.g. Kishore Kumar, Asha Bhosle"
               className={inputClasses}
             />
             <p className="mt-1 text-xs text-muted">

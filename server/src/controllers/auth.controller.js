@@ -2,6 +2,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import Admin from "../models/admin.model.js";
 
+const JWT_EXPIRES_IN = "1d";
+const COOKIE_MAX_AGE = 24 * 60 * 60 * 1000;
+
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -9,22 +12,35 @@ const cookieOptions = {
   path: "/",
 };
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required.",
       });
     }
 
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is not configured.");
+    }
+
     const admin = await Admin.findOne({
       email: email.trim().toLowerCase(),
     }).select("+passwordHash");
 
-    if (!admin || !(await bcrypt.compare(password, admin.passwordHash))) {
+    if (
+      !admin ||
+      !admin.passwordHash ||
+      !(await bcrypt.compare(password, admin.passwordHash))
+    ) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password.",
@@ -33,17 +49,20 @@ export const login = async (req, res) => {
 
     const token = jwt.sign(
       {
-        id: admin._id,
+        id: admin._id.toString(),
         email: admin.email,
         role: admin.role,
       },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "1d" },
+      {
+        algorithm: "HS256",
+        expiresIn: JWT_EXPIRES_IN,
+      },
     );
 
     res.cookie("adminToken", token, {
       ...cookieOptions,
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: COOKIE_MAX_AGE,
     });
 
     return res.status(200).json({
@@ -55,10 +74,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Login failed.",
-    });
+    next(error);
   }
 };
 

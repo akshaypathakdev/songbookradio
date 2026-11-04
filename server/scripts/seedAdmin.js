@@ -13,6 +13,10 @@ const seedAdmin = async () => {
       throw new Error("Missing required environment variables.");
     }
 
+    if (ADMIN_PASSWORD.length < 12) {
+      throw new Error("Admin password must be at least 12 characters.");
+    }
+
     await mongoose.connect(MONGODB_URI);
 
     const existingAdmin = await Admin.findOne();
@@ -25,7 +29,7 @@ const seedAdmin = async () => {
     const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
     await Admin.create({
-      email: ADMIN_EMAIL,
+      email: ADMIN_EMAIL.trim().toLowerCase(),
       passwordHash,
     });
 
@@ -34,7 +38,9 @@ const seedAdmin = async () => {
     console.error("Admin seeding failed:", error.message);
     process.exitCode = 1;
   } finally {
-    await mongoose.disconnect();
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
   }
 };
 
