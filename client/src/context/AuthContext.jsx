@@ -13,9 +13,13 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [admin, setAdmin] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
-  // Check whether an admin session already exists.
+  // Verify whether an admin session exists.
   const checkAuth = useCallback(async (signal) => {
+    setLoading(true);
+    setAuthError(null);
+
     try {
       const { data } = await api.get("/admin/auth/me", { signal });
 
@@ -25,8 +29,18 @@ export function AuthProvider({ children }) {
 
       return data.admin;
     } catch (error) {
-      if (!signal?.aborted) {
-        setAdmin(null);
+      if (signal?.aborted) {
+        return null;
+      }
+
+      setAdmin(null);
+
+      if (error.response?.status === 401) {
+        setAuthError(null);
+      } else {
+        setAuthError(
+          "Unable to verify your session. Please check your connection and try again.",
+        );
       }
 
       return null;
@@ -48,9 +62,12 @@ export function AuthProvider({ children }) {
 
   // Log in the admin.
   const login = async (credentials) => {
+    setAuthError(null);
+
     const { data } = await api.post("/admin/auth/login", credentials);
 
     setAdmin(data.admin);
+    setLoading(false);
 
     return data;
   };
@@ -61,6 +78,8 @@ export function AuthProvider({ children }) {
       await api.post("/admin/auth/logout");
     } finally {
       setAdmin(null);
+      setAuthError(null);
+      setLoading(false);
     }
   };
 
@@ -69,6 +88,7 @@ export function AuthProvider({ children }) {
       value={{
         admin,
         loading,
+        authError,
         isAuthenticated: Boolean(admin),
         login,
         logout,

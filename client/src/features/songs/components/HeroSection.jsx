@@ -8,7 +8,7 @@ function HeroSection() {
     event.preventDefault();
 
     const formData = new FormData(event.currentTarget);
-    const query = formData.get("q").trim();
+    const query = String(formData.get("q") || "").trim();
 
     if (query) {
       navigate(`/search?q=${encodeURIComponent(query)}`);
@@ -20,7 +20,7 @@ function HeroSection() {
       <div className="mx-auto max-w-4xl text-center">
         <div className="mb-5 flex justify-center">
           <div className="rounded-2xl bg-on-primary/15 p-3">
-            <Music2 size={32} />
+            <Music2 size={32} aria-hidden="true" />
           </div>
         </div>
 
@@ -35,20 +35,27 @@ function HeroSection() {
 
         <form
           onSubmit={handleSearch}
+          role="search"
           className="mx-auto mt-9 flex max-w-2xl items-center rounded-xl border border-border bg-surface p-2 shadow-xl"
         >
-          <Search className="ml-3 shrink-0 text-muted" size={22} />
+          <Search
+            className="ml-3 shrink-0 text-muted"
+            size={22}
+            aria-hidden="true"
+          />
 
           <input
             type="search"
             name="q"
+            maxLength={100}
+            aria-label="Search songs and artists"
             placeholder="Search songs, artists..."
             className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted sm:text-base"
           />
 
           <button
             type="submit"
-            className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-on-primary transition hover:bg-accent sm:px-7"
+            className="rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-on-primary transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-7"
           >
             Search
           </button>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
@@ -24,22 +23,34 @@ function AdminLoginForm() {
     const formData = new FormData(event.currentTarget);
 
     const credentials = {
-      email: formData.get("email").trim(),
-      password: formData.get("password"),
+      email: String(formData.get("email") || "").trim(),
+      password: String(formData.get("password") || ""),
     };
+
+    if (!credentials.email || !credentials.password) {
+      setError("Please enter your email and password.");
+      return;
+    }
 
     try {
       setLoading(true);
 
       await login(credentials);
 
-      const redirectTo = location.state?.from?.pathname || "/admin";
+      const requestedPath = location.state?.from?.pathname;
+
+      const redirectTo =
+        typeof requestedPath === "string" &&
+        requestedPath.startsWith("/admin") &&
+        !requestedPath.startsWith("/admin/login")
+          ? requestedPath
+          : "/admin";
 
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Unable to sign in. Please check your credentials and try again."
+          "Unable to sign in. Please check your credentials and try again.",
       );
     } finally {
       setLoading(false);
@@ -83,12 +94,13 @@ function AdminLoginForm() {
           <LockKeyhole size={18} className="shrink-0 text-muted" />
 
           <input
-            id="password"
+            id="admin-password"
             type={showPassword ? "text" : "password"}
             name="password"
             required
             autoComplete="current-password"
             placeholder="Enter your password"
+            aria-controls="admin-password"
             className="w-full bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted"
           />
 
@@ -97,6 +109,7 @@ function AdminLoginForm() {
             onClick={() => setShowPassword((previous) => !previous)}
             className="shrink-0 p-1 text-muted transition hover:text-primary"
             aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
           >
             {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
           </button>

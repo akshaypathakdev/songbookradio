@@ -1,8 +1,10 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout.jsx";
 import AdminLayout from "../layouts/AdminLayout.jsx";
 import ProtectedRoute from "./ProtectedRoute.jsx";
+
+import { useAuth } from "../context/AuthContext.jsx";
 
 import HomePage from "../pages/Home/HomePage.jsx";
 import SearchPage from "../pages/Search/SearchPage.jsx";
@@ -15,6 +17,39 @@ import AdminDashboardPage from "../pages/Admin/AdminDashboardPage.jsx";
 import SongUploadPage from "../pages/Admin/SongUploadPage.jsx";
 import AllLyricsPage from "../pages/Admin/AllLyricsPage.jsx";
 import EditSongPage from "../pages/Admin/EditSongPage.jsx";
+
+function AdminLoginRoute() {
+  const { isAuthenticated, loading, authError } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted">Checking authentication...</p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-4 text-center">
+        <p className="text-sm text-muted">{authError}</p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  return <AdminLoginPage />;
+}
 
 function AppRoutes() {
   return (

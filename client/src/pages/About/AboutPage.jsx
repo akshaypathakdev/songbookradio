@@ -24,17 +24,23 @@ const features = [
 
 function AboutPage() {
   return (
-    <main className="min-h-screen">
+    <div>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-primary to-accent px-4 py-20 text-on-primary sm:py-24">
+      <section
+        aria-labelledby="about-heading"
+        className="bg-gradient-to-br from-primary to-accent px-4 py-20 text-on-primary sm:py-24"
+      >
         <div className="mx-auto max-w-3xl text-center">
           <div className="mb-6 flex justify-center">
             <div className="rounded-2xl bg-on-primary/15 p-4">
-              <Music2 size={36} />
+              <Music2 size={36} aria-hidden="true" />
             </div>
           </div>
 
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1
+            id="about-heading"
+            className="text-4xl font-extrabold tracking-tight sm:text-5xl"
+          >
             About Lyricist
           </h1>
 
@@ -46,9 +52,15 @@ function AboutPage() {
       </section>
 
       {/* Introduction */}
-      <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6">
+      <section
+        aria-labelledby="introduction-heading"
+        className="mx-auto max-w-4xl px-4 py-16 sm:px-6"
+      >
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+          <h2
+            id="introduction-heading"
+            className="text-2xl font-bold text-foreground sm:text-3xl"
+          >
             Music is more than just sound.
           </h2>
 
@@ -66,10 +78,16 @@ function AboutPage() {
       </section>
 
       {/* Features */}
-      <section className="bg-surface px-4 py-16">
+      <section
+        aria-labelledby="features-heading"
+        className="bg-surface px-4 py-16"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mb-10 text-center">
-            <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+            <h2
+              id="features-heading"
+              className="text-2xl font-bold text-foreground sm:text-3xl"
+            >
               What You Can Do
             </h2>
 
@@ -86,7 +104,7 @@ function AboutPage() {
                 className="rounded-2xl border border-border bg-background p-7 text-center"
               >
                 <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-secondary">
-                  <Icon size={27} className="text-primary" />
+                  <Icon size={27} className="text-primary" aria-hidden="true" />
                 </div>
 
                 <h3 className="text-lg font-semibold text-foreground">
@@ -103,8 +121,14 @@ function AboutPage() {
       </section>
 
       {/* Call to Action */}
-      <section className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6">
-        <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
+      <section
+        aria-labelledby="cta-heading"
+        className="mx-auto max-w-4xl px-4 py-16 text-center sm:px-6"
+      >
+        <h2
+          id="cta-heading"
+          className="text-2xl font-bold text-foreground sm:text-3xl"
+        >
           Ready to explore?
         </h2>
 
@@ -114,13 +138,13 @@ function AboutPage() {
 
         <Link
           to="/search"
-          className="mt-7 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-on-primary transition hover:bg-accent"
+          className="mt-7 inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-on-primary transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <Search size={18} />
+          <Search size={18} aria-hidden="true" />
           Explore Songs
         </Link>
       </section>
-    </main>
+    </div>
   );
 }
 

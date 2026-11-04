@@ -1,14 +1,15 @@
+
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import api from "../../services/api";
+import api from "../../services/api.js";
 import SearchBar from "../../features/songs/components/SearchBar.jsx";
 import SearchResults from "../../features/songs/components/SearchResults.jsx";
 
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const query = searchParams.get("q") || "";
+  const query = (searchParams.get("q") || "").trim();
 
   const [searchInput, setSearchInput] = useState(query);
   const [songs, setSongs] = useState([]);
@@ -20,34 +21,46 @@ function SearchPage() {
   }, [query]);
 
   useEffect(() => {
-    if (!query.trim()) {
+    if (!query) {
       setSongs([]);
       setError("");
       setLoading(false);
       return;
     }
 
+    const controller = new AbortController();
+
     const fetchSongs = async () => {
       try {
         setLoading(true);
         setError("");
+        setSongs([]);
 
         const { data } = await api.get("/songs", {
           params: { search: query },
+          signal: controller.signal,
         });
 
-        setSongs(data.songs || []);
+        if (controller.signal.aborted) return;
+
+        setSongs(Array.isArray(data?.songs) ? data.songs : []);
       } catch (err) {
+        if (controller.signal.aborted) return;
+
         setError(
-          err.response?.data?.message || "Failed to search songs."
+          err.response?.data?.message || "Failed to search songs.",
         );
         setSongs([]);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchSongs();
+
+    return () => controller.abort();
   }, [query]);
 
   const handleSearch = (event) => {
@@ -82,7 +95,7 @@ function SearchPage() {
         </div>
       </div>
 
-      <section className="mt-12">
+      <section className="mt-12" aria-live="polite">
         {query ? (
           <>
             <div className="mb-6">

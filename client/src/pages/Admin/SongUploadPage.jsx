@@ -3,7 +3,7 @@ import SongUploadForm from "../../features/admin/components/SongUploadForm.jsx";
 
 function SongUploadPage() {
   return (
-    <main className="min-h-screen bg-background px-4 py-10 sm:px-6 lg:px-8">
+    <div className="bg-background px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
         <div className="mb-8">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-secondary">
@@ -23,7 +23,7 @@ function SongUploadPage() {
           <SongUploadForm />
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

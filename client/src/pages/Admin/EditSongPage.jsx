@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-import api from "../../services/api";
-import SongUploadForm from "../../features/admin/components/SongUploadForm";
+import api from "../../services/api.js";
+import SongUploadForm from "../../features/admin/components/SongUploadForm.jsx";
 
 function EditSongPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
 
   const [song, setSong] = useState(null);
   const [lyrics, setLyrics] = useState("");
@@ -20,12 +21,16 @@ function EditSongPage() {
       try {
         setLoading(true);
         setError("");
+        setSong(null);
+        setLyrics("");
+
+        const encodedSlug = encodeURIComponent(slug);
 
         const [songResponse, lyricsResponse] = await Promise.all([
-          api.get(`/songs/${slug}`, {
+          api.get(`/songs/${encodedSlug}`, {
             signal: controller.signal,
           }),
-          api.get(`/songs/${slug}/lyrics`, {
+          api.get(`/songs/${encodedSlug}/lyrics`, {
             responseType: "text",
             signal: controller.signal,
           }),
@@ -33,13 +38,23 @@ function EditSongPage() {
 
         if (controller.signal.aborted) return;
 
-        setSong(songResponse.data.song);
-        setLyrics(lyricsResponse.data);
-      } catch (error) {
+        const fetchedSong = songResponse.data?.song;
+
+        if (!fetchedSong) {
+          throw new Error("Song details were not found.");
+        }
+
+        setSong(fetchedSong);
+        setLyrics(
+          typeof lyricsResponse.data === "string" ? lyricsResponse.data : "",
+        );
+      } catch (err) {
         if (controller.signal.aborted) return;
 
         setError(
-          error.response?.data?.message || "Failed to load song details.",
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to load song details.",
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -54,7 +69,7 @@ function EditSongPage() {
   }, [slug]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto max-w-5xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
       <div>
         <Link
           to="/admin/songs"
@@ -72,12 +87,17 @@ function EditSongPage() {
       </div>
 
       {loading ? (
-        <div className="rounded-xl border border-border bg-surface px-6 py-16 text-center">
+        <div
+          className="rounded-xl border border-border bg-surface px-6 py-16 text-center"
+          role="status"
+        >
           <p className="text-sm text-muted">Loading song details...</p>
         </div>
       ) : error ? (
         <div className="rounded-xl border border-border bg-surface px-6 py-16 text-center">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-red-600" role="alert">
+            {error}
+          </p>
 
           <Link
             to="/admin/songs"
@@ -91,9 +111,7 @@ function EditSongPage() {
           <SongUploadForm
             song={song}
             lyrics={lyrics}
-            onSuccess={() => {
-              window.location.href = "/admin/songs";
-            }}
+            onSuccess={() => navigate("/admin/songs", { replace: true })}
           />
         </div>
       )}

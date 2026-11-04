@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 import { LayoutDashboard, LogOut, Music2 } from "lucide-react";
+
 import { useAuth } from "../context/AuthContext.jsx";
 
 function AdminLayout() {
@@ -9,12 +10,14 @@ function AdminLayout() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
     try {
-      setLoggingOut(true);
       await logout();
+    } finally {
       navigate("/admin/login", { replace: true });
-    } catch {
-      setLoggingOut(false);
     }
   };
 
@@ -40,8 +43,10 @@ function AdminLayout() {
             </Link>
 
             <button
+              type="button"
               onClick={handleLogout}
               disabled={loggingOut}
+              aria-label="Log out of admin account"
               className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
             >
               <LogOut size={17} />

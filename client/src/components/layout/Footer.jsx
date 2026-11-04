@@ -7,13 +7,20 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
           {/* Brand */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link
+            to="/"
+            aria-label="Lyricist home"
+            className="flex items-center gap-2"
+          >
             <Music2 size={24} className="text-primary" />
             <span className="text-xl font-bold text-foreground">Lyricist</span>
           </Link>
 
           {/* Navigation */}
-          <div className="flex items-center gap-6 text-sm text-muted">
+          <nav
+            aria-label="Footer navigation"
+            className="flex items-center gap-6 text-sm text-muted"
+          >
             <Link to="/" className="transition hover:text-primary">
               Home
             </Link>
@@ -25,7 +32,7 @@ function Footer() {
             <Link to="/about" className="transition hover:text-primary">
               About
             </Link>
-          </div>
+          </nav>
 
           {/* Admin */}
           <Link

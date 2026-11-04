@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, Link, Upload, X } from "lucide-react";
+import { ImagePlus, Link as LinkIcon, Upload, X } from "lucide-react";
 
-import api from "../../../services/api";
+import api from "../../../services/api.js";
 
 function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
   const isEditing = Boolean(song);
@@ -19,14 +19,16 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [artworkPreview, setArtworkPreview] = useState("");
+  const [previewError, setPreviewError] = useState(false);
 
   const artworkInputRef = useRef(null);
 
   const existingArtworkPreview =
     song?.artwork && !artworkRemoved
-      ? `${api.defaults.baseURL}/songs/${song.slug}/artwork`
+      ? `${api.defaults.baseURL}/songs/${encodeURIComponent(song.slug)}/artwork`
       : "";
 
+  // Generate and clean up local artwork previews
   useEffect(() => {
     if (!artwork) {
       setArtworkPreview("");
@@ -39,8 +41,38 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
     return () => URL.revokeObjectURL(previewUrl);
   }, [artwork]);
 
+  // Reset preview error when the preview source changes
+  useEffect(() => {
+    setPreviewError(false);
+  }, [artworkPreview, artworkUrl, artworkMode, existingArtworkPreview]);
+
   const handleArtworkChange = (event) => {
     const file = event.target.files?.[0] || null;
+
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const maxSize = 5 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      setStatus({
+        type: "error",
+        message: "Only JPG, PNG, and WEBP images are allowed.",
+      });
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > maxSize) {
+      setStatus({
+        type: "error",
+        message: "Artwork must be smaller than 5 MB.",
+      });
+
+      event.target.value = "";
+      return;
+    }
 
     setArtwork(file);
     setArtworkRemoved(false);
@@ -51,12 +83,25 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
     setArtwork(null);
     setArtworkUrl("");
     setArtworkRemoved(true);
+    setPreviewError(false);
 
     if (artworkInputRef.current) {
       artworkInputRef.current.value = "";
     }
 
     setStatus(null);
+  };
+
+  const handleArtworkModeChange = (mode) => {
+    setArtworkMode(mode);
+    setArtwork(null);
+    setArtworkUrl("");
+    setPreviewError(false);
+    setStatus(null);
+
+    if (artworkInputRef.current) {
+      artworkInputRef.current.value = "";
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -93,7 +138,11 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
         formData.set("artwork", artwork);
       }
     } else {
-      formData.set("artworkUrl", artworkUrl.trim());
+      const trimmedArtworkUrl = artworkUrl.trim();
+
+      if (trimmedArtworkUrl) {
+        formData.set("artworkUrl", trimmedArtworkUrl);
+      }
     }
 
     try {
@@ -113,9 +162,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
             : "Song uploaded successfully!"),
       });
 
-      if (onSuccess) {
-        onSuccess(data);
-      }
+      onSuccess?.(data);
 
       if (!isEditing) {
         form.reset();
@@ -124,6 +171,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
         setArtworkMode("upload");
         setArtworkRemoved(false);
         setSingers("");
+        setStatus(null);
       }
     } catch (error) {
       setStatus({
@@ -138,29 +186,39 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
   };
 
   const inputClasses =
-    "w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10";
+    "w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60";
 
   const previewImage =
     artworkPreview ||
-    (artworkMode === "url" && artworkUrl ? artworkUrl : existingArtworkPreview);
+    (artworkMode === "url" && artworkUrl.trim()
+      ? artworkUrl.trim()
+      : existingArtworkPreview);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* Song Information */}
-      <section className="space-y-5">
-        <h2 className="text-lg font-semibold text-foreground">
+      <section className="space-y-5" aria-labelledby="song-info-heading">
+        <h2
+          id="song-info-heading"
+          className="text-lg font-semibold text-foreground"
+        >
           Song Information
         </h2>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="song-title"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Song Title *
             </label>
             <input
+              id="song-title"
               type="text"
               name="title"
               required
+              maxLength={150}
               defaultValue={song?.title || ""}
               disabled={loading}
               placeholder="Enter song title"
@@ -169,13 +227,18 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="song-language"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Language *
             </label>
             <input
+              id="song-language"
               type="text"
               name="language"
               required
+              maxLength={50}
               defaultValue={song?.language || "Hindi"}
               disabled={loading}
               placeholder="Enter language"
@@ -184,12 +247,17 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="song-album"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Album / Movie
             </label>
             <input
+              id="song-album"
               type="text"
               name="albumOrMovie"
+              maxLength={150}
               defaultValue={song?.albumOrMovie || ""}
               disabled={loading}
               placeholder="Enter album or movie name"
@@ -198,12 +266,17 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="song-music-director"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Music Director
             </label>
             <input
+              id="song-music-director"
               type="text"
               name="musicDirector"
+              maxLength={100}
               defaultValue={song?.musicDirector || ""}
               disabled={loading}
               placeholder="Enter music director"
@@ -212,15 +285,20 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="song-singers"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Singers *
             </label>
             <input
+              id="song-singers"
               type="text"
               value={singers}
               onChange={(event) => setSingers(event.target.value)}
               required
               disabled={loading}
+              maxLength={500}
               placeholder="e.g. Kishore Kumar, Asha Bhosle"
               className={inputClasses}
             />
@@ -230,12 +308,17 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-foreground">
+            <label
+              htmlFor="song-lyricist"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
               Lyricist
             </label>
             <input
+              id="song-lyricist"
               type="text"
               name="lyricist"
+              maxLength={100}
               defaultValue={song?.lyricist || ""}
               disabled={loading}
               placeholder="Enter lyricist name"
@@ -248,9 +331,12 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
       <div className="border-t border-border" />
 
       {/* Artwork */}
-      <section className="space-y-4">
+      <section className="space-y-4" aria-labelledby="artwork-heading">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2
+            id="artwork-heading"
+            className="text-lg font-semibold text-foreground"
+          >
             Song Artwork
           </h2>
           <p className="mt-1 text-sm text-muted">
@@ -262,103 +348,112 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           <button
             type="button"
             disabled={loading}
-            onClick={() => {
-              setArtworkMode("upload");
-              setStatus(null);
-            }}
+            aria-pressed={artworkMode === "upload"}
+            onClick={() => handleArtworkModeChange("upload")}
             className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
               artworkMode === "upload"
                 ? "bg-primary text-on-primary"
                 : "border border-border text-muted hover:text-foreground"
             }`}
           >
-            <Upload size={16} />
+            <Upload size={16} aria-hidden="true" />
             Upload Image
           </button>
 
           <button
             type="button"
             disabled={loading}
-            onClick={() => {
-              setArtworkMode("url");
-              setStatus(null);
-            }}
+            aria-pressed={artworkMode === "url"}
+            onClick={() => handleArtworkModeChange("url")}
             className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
               artworkMode === "url"
                 ? "bg-primary text-on-primary"
                 : "border border-border text-muted hover:text-foreground"
             }`}
           >
-            <Link size={16} />
+            <LinkIcon size={16} aria-hidden="true" />
             Image URL
           </button>
         </div>
 
         {artworkMode === "upload" ? (
-          <>
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-background px-6 py-10 text-center transition hover:border-primary">
-              {previewImage ? (
-                <img
-                  src={previewImage}
-                  alt="Artwork preview"
-                  className="mb-4 h-40 w-40 rounded-xl object-cover"
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none";
-                  }}
-                />
-              ) : (
-                <ImagePlus size={32} className="mb-3 text-primary" />
-              )}
-
-              <span className="font-medium text-foreground">
-                {artwork
-                  ? artwork.name
-                  : song?.artwork && !artworkRemoved
-                    ? "Current artwork"
-                    : "Choose song artwork"}
-              </span>
-
-              <span className="mt-2 text-xs text-muted">
-                PNG, JPG or WEBP · Maximum 5 MB
-              </span>
-
-              <input
-                ref={artworkInputRef}
-                type="file"
-                name="artwork"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleArtworkChange}
-                disabled={loading}
-                className="sr-only"
+          <label
+            htmlFor="song-artwork"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-background px-6 py-10 text-center transition hover:border-primary"
+          >
+            {previewImage && !previewError ? (
+              <img
+                src={previewImage}
+                alt="Artwork preview"
+                width="160"
+                height="160"
+                className="mb-4 h-40 w-40 rounded-xl object-cover"
+                onError={() => setPreviewError(true)}
               />
-            </label>
-          </>
+            ) : (
+              <ImagePlus
+                size={32}
+                className="mb-3 text-primary"
+                aria-hidden="true"
+              />
+            )}
+
+            <span className="font-medium text-foreground">
+              {artwork
+                ? artwork.name
+                : song?.artwork && !artworkRemoved
+                  ? "Current artwork"
+                  : "Choose song artwork"}
+            </span>
+
+            <span className="mt-2 text-xs text-muted">
+              PNG, JPG or WEBP · Maximum 5 MB
+            </span>
+
+            <input
+              ref={artworkInputRef}
+              id="song-artwork"
+              type="file"
+              name="artwork"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleArtworkChange}
+              disabled={loading}
+              className="sr-only"
+            />
+          </label>
         ) : (
           <div className="space-y-3">
+            <label
+              htmlFor="artwork-url"
+              className="block text-sm font-medium text-foreground"
+            >
+              Artwork URL
+            </label>
+
             <input
+              id="artwork-url"
               type="url"
               name="artworkUrl"
               value={artworkUrl}
               onChange={(event) => {
                 setArtworkUrl(event.target.value);
                 setArtworkRemoved(false);
+                setStatus(null);
               }}
               disabled={loading}
+              maxLength={2048}
               placeholder="https://example.com/song-artwork.jpg"
               className={inputClasses}
             />
 
-            {previewImage && (
+            {previewImage && !previewError && (
               <img
                 src={previewImage}
                 alt="Artwork preview"
+                width="160"
+                height="160"
                 className="h-40 w-40 rounded-xl border border-border object-cover"
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                }}
-                onLoad={(event) => {
-                  event.currentTarget.style.display = "block";
-                }}
+                onError={() => setPreviewError(true)}
               />
             )}
           </div>
@@ -371,7 +466,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
             onClick={handleRemoveArtwork}
             className="inline-flex items-center gap-2 text-sm text-muted transition hover:text-foreground disabled:opacity-60"
           >
-            <X size={15} />
+            <X size={15} aria-hidden="true" />
             Remove current artwork
           </button>
         )}
@@ -382,6 +477,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
             disabled={loading}
             onClick={() => {
               setArtwork(null);
+              setStatus(null);
 
               if (artworkInputRef.current) {
                 artworkInputRef.current.value = "";
@@ -389,7 +485,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
             }}
             className="inline-flex items-center gap-2 text-sm text-muted transition hover:text-foreground disabled:opacity-60"
           >
-            <X size={15} />
+            <X size={15} aria-hidden="true" />
             Remove selected image
           </button>
         )}
@@ -398,9 +494,12 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
       <div className="border-t border-border" />
 
       {/* Lyrics */}
-      <section className="space-y-4">
+      <section className="space-y-4" aria-labelledby="lyrics-heading">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">
+          <h2
+            id="lyrics-heading"
+            className="text-lg font-semibold text-foreground"
+          >
             Song Lyrics *
           </h2>
           <p className="mt-1 text-sm text-muted">
@@ -409,19 +508,22 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
         </div>
 
         <textarea
+          id="song-lyrics"
           name="lyrics"
           required
           rows={14}
           defaultValue={lyrics}
           disabled={loading}
           placeholder="Enter song lyrics here..."
-          className="w-full resize-y rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-7 text-foreground outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/10"
+          className="w-full resize-y rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-7 text-foreground outline-none transition placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
         />
       </section>
 
       {/* Status */}
       {status && (
         <p
+          role={status.type === "error" ? "alert" : "status"}
+          aria-live="polite"
           className={`rounded-lg px-4 py-3 text-sm ${
             status.type === "success"
               ? "bg-secondary text-foreground"
@@ -437,9 +539,10 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Upload size={17} />
+          <Upload size={17} aria-hidden="true" />
+
           {loading
             ? isEditing
               ? "Saving Changes..."

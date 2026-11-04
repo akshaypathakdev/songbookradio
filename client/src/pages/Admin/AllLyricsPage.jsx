@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
-import api from "../../services/api";
-import AllLyrics from "../../features/admin/components/AllLyrics";
+import api from "../../services/api.js";
+import AllLyrics from "../../features/admin/components/AllLyrics.jsx";
 
 function AllLyricsPage() {
   const [songs, setSongs] = useState([]);
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -41,10 +42,16 @@ function AllLyricsPage() {
           signal: controller.signal,
         });
 
-        setSongs(data.songs || []);
-        setPagination(data.pagination);
+        if (!controller.signal.aborted) {
+          setSongs(data.songs || []);
+
+          if (data.pagination) {
+            setPagination(data.pagination);
+          }
+        }
       } catch (err) {
-        if (err.code !== "ERR_CANCELED") {
+        if (!controller.signal.aborted && err.code !== "ERR_CANCELED") {
+          setSongs([]);
           setError(err.response?.data?.message || "Failed to load songs.");
         }
       } finally {
@@ -57,7 +64,7 @@ function AllLyricsPage() {
     fetchSongs();
 
     return () => controller.abort();
-  }, [pagination.currentPage, pagination.limit, search]);
+  }, [pagination.currentPage, pagination.limit, search, refreshKey]);
 
   // Search submission
   const handleSearch = (event) => {
@@ -77,7 +84,7 @@ function AllLyricsPage() {
       `Are you sure you want to delete "${song.title}"? This action cannot be undone.`,
     );
 
-    if (!confirmed) return;
+    if (!confirmed || deletingSongId) return;
 
     try {
       setDeletingSongId(song._id);
@@ -90,19 +97,9 @@ function AllLyricsPage() {
           ...previous,
           currentPage: previous.currentPage - 1,
         }));
-      } else {
-        // Refresh current page
-        const { data } = await api.get("/songs", {
-          params: {
-            page: pagination.currentPage,
-            limit: pagination.limit,
-            search,
-          },
-        });
-
-        setSongs(data.songs || []);
-        setPagination(data.pagination);
       }
+
+      setRefreshKey((previous) => previous + 1);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to delete song.");
     } finally {
@@ -111,7 +108,7 @@ function AllLyricsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10 sm:px-6 lg:px-8">
+    <div className="bg-background px-4 py-10 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         {/* Header */}
         <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
@@ -138,6 +135,7 @@ function AllLyricsPage() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <form
             onSubmit={handleSearch}
+            role="search"
             className="flex items-center rounded-lg border border-border bg-surface px-3 sm:w-96"
           >
             <Search size={19} className="shrink-0 text-muted" />
@@ -147,11 +145,12 @@ function AllLyricsPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search songs, singers, albums..."
+              aria-label="Search songs, singers, and albums"
               className="w-full bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted"
             />
           </form>
 
-          <p className="text-sm text-muted">
+          <p className="text-sm text-muted" aria-live="polite">
             {pagination.totalSongs}{" "}
             {pagination.totalSongs === 1 ? "song" : "songs"}
           </p>
@@ -159,14 +158,19 @@ function AllLyricsPage() {
 
         {/* Error */}
         {error && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div
+            role="alert"
+            className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600"
+          >
             {error}
           </div>
         )}
 
         {/* Songs List */}
         {loading ? (
-          <p className="py-12 text-center text-muted">Loading songs...</p>
+          <p className="py-12 text-center text-muted" role="status">
+            Loading songs...
+          </p>
         ) : (
           <AllLyrics
             songs={songs}
@@ -215,7 +219,7 @@ function AllLyricsPage() {
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }
 
