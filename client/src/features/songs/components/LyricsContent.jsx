@@ -11,45 +11,56 @@ function LyricsContent({ song, lyrics }) {
   const encodedSlug = encodeURIComponent(song.slug);
   const artworkUrl = `${api.defaults.baseURL}/songs/${encodedSlug}/artwork`;
 
-  const singers = Array.isArray(song.singers) ? song.singers.join(", ") : "";
+  const details = [
+    {
+      label: "Singers",
+      value: Array.isArray(song.singers)
+        ? song.singers.join(", ")
+        : song.singers,
+    },
+    { label: "Music by", value: song.musicDirector },
+    { label: "Lyrics by", value: song.lyricist },
+    { label: "Album / Movie", value: song.albumOrMovie },
+    { label: "Language", value: song.language },
+  ].filter((detail) => detail.value);
 
   return (
     <section className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
       {/* Song Header */}
       <div className="mb-8 rounded-2xl border border-border bg-surface p-6 sm:p-8">
-        <div className="flex items-start gap-4">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary">
             {song.artwork && !imageError ? (
               <img
                 src={artworkUrl}
                 alt={`${song.title} artwork`}
-                width="80"
-                height="80"
+                width="96"
+                height="96"
                 className="h-full w-full object-cover"
                 loading="eager"
                 decoding="async"
                 onError={() => setImageError(true)}
               />
             ) : (
-              <Music2 size={30} className="text-primary" aria-hidden="true" />
+              <Music2 size={32} className="text-primary" aria-hidden="true" />
             )}
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
               {song.title}
             </h1>
 
-            {singers && <p className="mt-2 text-sm text-muted">{singers}</p>}
-
-            <p className="mt-1 text-sm text-muted">
-              {song.albumOrMovie || "Single"}
-              {song.language && ` · ${song.language}`}
-            </p>
-
-            {song.lyricist && (
-              <p className="mt-1 text-sm text-muted">Lyrics: {song.lyricist}</p>
-            )}
+            <div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+              {details.map(({ label, value }) => (
+                <div key={label} className="text-sm">
+                  <span className="font-semibold text-foreground">
+                    {label}:
+                  </span>{" "}
+                  <span className="text-muted">{value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

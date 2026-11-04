@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, Link as LinkIcon, Upload, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ImagePlus,
+  Link as LinkIcon,
+  Upload,
+  X,
+} from "lucide-react";
 
 import api from "../../../services/api.js";
 
@@ -18,6 +25,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
   const [singers, setSingers] = useState(song?.singers?.join(", ") || "");
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
+
   const [artworkPreview, setArtworkPreview] = useState("");
   const [previewError, setPreviewError] = useState(false);
 
@@ -28,7 +36,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
       ? `${api.defaults.baseURL}/songs/${encodeURIComponent(song.slug)}/artwork`
       : "";
 
-  // Generate and clean up local artwork previews
+  // Create and clean up local artwork preview
   useEffect(() => {
     if (!artwork) {
       setArtworkPreview("");
@@ -41,10 +49,19 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
     return () => URL.revokeObjectURL(previewUrl);
   }, [artwork]);
 
-  // Reset preview error when the preview source changes
+  // Reset preview error when source changes
   useEffect(() => {
     setPreviewError(false);
   }, [artworkPreview, artworkUrl, artworkMode, existingArtworkPreview]);
+
+  const inputClasses =
+    "w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60";
+
+  const previewImage =
+    artworkPreview ||
+    (artworkMode === "url" && artworkUrl.trim()
+      ? artworkUrl.trim()
+      : existingArtworkPreview);
 
   const handleArtworkChange = (event) => {
     const file = event.target.files?.[0] || null;
@@ -79,25 +96,49 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
     setStatus(null);
   };
 
+  const handleArtworkModeChange = (mode) => {
+    setArtworkMode(mode);
+    setArtwork(null);
+    setArtworkUrl("");
+    setArtworkRemoved(false);
+    setPreviewError(false);
+    setStatus(null);
+
+    if (artworkInputRef.current) {
+      artworkInputRef.current.value = "";
+    }
+  };
+
   const handleRemoveArtwork = () => {
     setArtwork(null);
     setArtworkUrl("");
     setArtworkRemoved(true);
     setPreviewError(false);
+    setStatus(null);
 
     if (artworkInputRef.current) {
       artworkInputRef.current.value = "";
     }
-
-    setStatus(null);
   };
 
-  const handleArtworkModeChange = (mode) => {
-    setArtworkMode(mode);
+  const handleRemoveSelectedImage = () => {
+    setArtwork(null);
+    setStatus(null);
+
+    if (artworkInputRef.current) {
+      artworkInputRef.current.value = "";
+    }
+  };
+
+  const resetForm = (form) => {
+    form.reset();
+
     setArtwork(null);
     setArtworkUrl("");
+    setArtworkMode("upload");
+    setArtworkRemoved(false);
+    setSingers("");
     setPreviewError(false);
-    setStatus(null);
 
     if (artworkInputRef.current) {
       artworkInputRef.current.value = "";
@@ -127,7 +168,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
 
     formData.set("singers", JSON.stringify(singerList));
 
-    // Artwork handling
+    // Handle artwork
     formData.delete("artwork");
     formData.delete("artworkUrl");
 
@@ -153,6 +194,10 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
         ? await api.patch(`/songs/${song._id}`, formData)
         : await api.post("/songs", formData);
 
+      if (!isEditing) {
+        resetForm(form);
+      }
+
       setStatus({
         type: "success",
         message:
@@ -163,36 +208,19 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
       });
 
       onSuccess?.(data);
-
-      if (!isEditing) {
-        form.reset();
-        setArtwork(null);
-        setArtworkUrl("");
-        setArtworkMode("upload");
-        setArtworkRemoved(false);
-        setSingers("");
-        setStatus(null);
-      }
     } catch (error) {
       setStatus({
         type: "error",
         message:
           error.response?.data?.message ||
-          (isEditing ? "Failed to update song." : "Failed to upload song."),
+          (isEditing
+            ? "Failed to update song. Please try again."
+            : "Failed to upload song. Please try again."),
       });
     } finally {
       setLoading(false);
     }
   };
-
-  const inputClasses =
-    "w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60";
-
-  const previewImage =
-    artworkPreview ||
-    (artworkMode === "url" && artworkUrl.trim()
-      ? artworkUrl.trim()
-      : existingArtworkPreview);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -295,7 +323,10 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
               id="song-singers"
               type="text"
               value={singers}
-              onChange={(event) => setSingers(event.target.value)}
+              onChange={(event) => {
+                setSingers(event.target.value);
+                setStatus(null);
+              }}
               required
               disabled={loading}
               maxLength={500}
@@ -330,7 +361,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
 
       <div className="border-t border-border" />
 
-      {/* Artwork */}
+      {/* Song Artwork */}
       <section className="space-y-4" aria-labelledby="artwork-heading">
         <div>
           <h2
@@ -344,6 +375,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </p>
         </div>
 
+        {/* Artwork Mode */}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -376,6 +408,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </button>
         </div>
 
+        {/* Upload Image */}
         {artworkMode === "upload" ? (
           <label
             htmlFor="song-artwork"
@@ -422,6 +455,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
             />
           </label>
         ) : (
+          /* External Image URL */
           <div className="space-y-3">
             <label
               htmlFor="artwork-url"
@@ -459,6 +493,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           </div>
         )}
 
+        {/* Remove Artwork */}
         {song?.artwork && !artworkRemoved && (
           <button
             type="button"
@@ -475,14 +510,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
           <button
             type="button"
             disabled={loading}
-            onClick={() => {
-              setArtwork(null);
-              setStatus(null);
-
-              if (artworkInputRef.current) {
-                artworkInputRef.current.value = "";
-              }
-            }}
+            onClick={handleRemoveSelectedImage}
             className="inline-flex items-center gap-2 text-sm text-muted transition hover:text-foreground disabled:opacity-60"
           >
             <X size={15} aria-hidden="true" />
@@ -493,7 +521,7 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
 
       <div className="border-t border-border" />
 
-      {/* Lyrics */}
+      {/* Song Lyrics */}
       <section className="space-y-4" aria-labelledby="lyrics-heading">
         <div>
           <h2
@@ -519,19 +547,38 @@ function SongUploadForm({ song = null, lyrics = "", onSuccess }) {
         />
       </section>
 
-      {/* Status */}
+      {/* Status Notification */}
       {status && (
-        <p
+        <div
           role={status.type === "error" ? "alert" : "status"}
           aria-live="polite"
-          className={`rounded-lg px-4 py-3 text-sm ${
+          className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${
             status.type === "success"
-              ? "bg-secondary text-foreground"
-              : "bg-red-100 text-red-700"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
-          {status.message}
-        </p>
+          {status.type === "success" ? (
+            <CheckCircle2
+              size={20}
+              className="mt-0.5 shrink-0"
+              aria-hidden="true"
+            />
+          ) : (
+            <AlertCircle
+              size={20}
+              className="mt-0.5 shrink-0"
+              aria-hidden="true"
+            />
+          )}
+
+          <div>
+            <p className="font-semibold">
+              {status.type === "success" ? "Success!" : "Something went wrong"}
+            </p>
+            <p className="mt-1">{status.message}</p>
+          </div>
+        </div>
       )}
 
       {/* Submit */}
