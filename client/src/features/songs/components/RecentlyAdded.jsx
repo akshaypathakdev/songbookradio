@@ -46,6 +46,7 @@ function RecentlyAdded() {
       className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8"
       aria-labelledby="recently-added-heading"
     >
+      
       <div className="mb-7 flex items-center justify-between">
         <div>
           <h2
