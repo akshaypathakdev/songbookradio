@@ -41,7 +41,7 @@ const startServer = async () => {
     await connectDB();
 
     server = app.listen(PORT, () => {
-      console.log(`Lyricist API running on port ${PORT}`);
+      console.log(`SongBook Radio API running on port ${PORT}`);
     });
 
     server.on("error", (error) => {
