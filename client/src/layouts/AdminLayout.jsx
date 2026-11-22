@@ -27,7 +27,7 @@ function AdminLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link to="/admin" className="flex items-center gap-2">
             <Music2 size={25} className="text-primary" />
-            <span className="text-xl font-bold text-foreground">Lyricist</span>
+            <span className="text-xl font-bold text-foreground">SongBook</span>
             <span className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-primary">
               Admin
             </span>
