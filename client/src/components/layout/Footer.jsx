@@ -13,7 +13,7 @@ function Footer() {
             className="flex items-center gap-2"
           >
             <Music2 size={24} className="text-primary" />
-            <span className="text-xl font-bold text-foreground">Lyricist</span>
+            <span className="text-xl font-bold text-foreground">SongBook</span>
           </Link>
 
           {/* Navigation */}
@@ -44,7 +44,7 @@ function Footer() {
         </div>
 
         <div className="mt-8 border-t border-border pt-6 text-center text-xs text-muted">
-          © {new Date().getFullYear()} Lyricist. All rights reserved.
+          © {new Date().getFullYear()} SongBook. All rights reserved.
         </div>
       </div>
     </footer>
